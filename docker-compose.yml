@@ -1,0 +1,70 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-hris_db}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - hris_db_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      - hris-network
+
+  api:
+    build:
+      context: ../hris-backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      DB_NAME: ${POSTGRES_DB:-hris_db}
+      JWT_SECRET: ${JWT_SECRET:?Set a strong JWT_SECRET in .env}
+      ENV: ${ENV:-development}
+      BOOTSTRAP_SUPERADMIN_EMAIL: ${BOOTSTRAP_SUPERADMIN_EMAIL:-}
+      BOOTSTRAP_SUPERADMIN_PASSWORD: ${BOOTSTRAP_SUPERADMIN_PASSWORD:-}
+    volumes:
+      - hris_uploads:/app/profile-pictures
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - hris-network
+
+  web:
+    build:
+      context: ./hris-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - hris-network
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - hris-network
+
+volumes:
+  hris_db_data:
+  hris_uploads:
+
+networks:
+  hris-network:
+    driver: bridge

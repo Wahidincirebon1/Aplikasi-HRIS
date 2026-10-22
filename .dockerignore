@@ -1,0 +1,9 @@
+**/node_modules
+**/build
+**/.git
+**/.DS_Store
+**/.env
+**/dist
+**/__pycache__
+**/.next
+**/coverage

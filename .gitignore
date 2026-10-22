@@ -1,0 +1,6 @@
+.env
+backups/
+*.dump
+*.sql.gz
+hris-frontend/node_modules/
+hris-frontend/build/
